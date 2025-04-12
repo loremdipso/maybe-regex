@@ -13,19 +13,20 @@ lazy_static! {
 }
 
 #[derive(Debug, Clone)]
-pub struct TagWrapper {
+pub struct MaybeRegex {
     data: TagWrapperData,
     original: String,
-    pub is_negative: bool,
+    is_negative: bool,
+    case_sensitive: bool,
 }
 
-impl PartialEq for TagWrapper {
+impl PartialEq for MaybeRegex {
     fn eq(&self, other: &Self) -> bool {
         self.original == other.original && self.is_negative == other.is_negative
     }
 }
 
-impl PartialOrd for TagWrapper {
+impl PartialOrd for MaybeRegex {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         (&self.original, self.is_negative).partial_cmp(&(&other.original, other.is_negative))
     }
@@ -37,7 +38,11 @@ pub enum TagWrapperData {
     Regex(Regex),
 }
 
-impl TagWrapper {
+impl MaybeRegex {
+    pub fn new<'a, S: Into<&'a str>>(s: S) -> Self {
+        Self::from(s)
+    }
+
     pub fn from<'a, S: Into<&'a str>>(s: S) -> Self {
         let s = s.into();
         let (s, is_negative) = if s.starts_with("-") {
@@ -53,12 +58,26 @@ impl TagWrapper {
                 data: TagWrapperData::Regex(regex),
                 original: s.into(),
                 is_negative,
+                case_sensitive: false,
             },
             None => Self {
                 data: TagWrapperData::Raw(s.clone()),
                 original: s.into(),
                 is_negative,
+                case_sensitive: false,
             },
+        }
+    }
+
+    pub fn as_case_sensitive(mut self) -> Self {
+        self.case_sensitive = true;
+        self
+    }
+
+    pub fn is_regex(&self) -> bool {
+        match &self.data {
+            TagWrapperData::Raw(_) => false,
+            TagWrapperData::Regex(_) => true,
         }
     }
 
@@ -70,8 +89,15 @@ impl TagWrapper {
         return matches;
     }
 
+    // You likely want matches, which considers whether the input is "negative" or not.
+    // This ignores that and just returns whether the needle is found inside the haystack.
     pub fn is_contained_within<'a, S: Into<&'a str>>(&self, haystack: S) -> bool {
-        let haystack = haystack.into().to_lowercase();
+        let haystack = if self.case_sensitive {
+            haystack.into()
+        } else {
+            &haystack.into().to_lowercase()
+        };
+
         match &self.data {
             TagWrapperData::Raw(value) => haystack.contains(value),
             TagWrapperData::Regex(regex) => regex.is_match(&haystack),
@@ -107,27 +133,32 @@ impl TagWrapper {
         self.original.clone()
     }
 
-    pub fn match_indices(&self, other: &str) -> Vec<(usize, usize)> {
-        let mut rv = vec![];
-        let other = &other.to_lowercase();
-        match &self.data {
-            TagWrapperData::Raw(value) => {
-                for (index, _) in other.match_indices(value) {
-                    rv.push((index, value.len()));
-                }
-            }
-            TagWrapperData::Regex(regex) => {
-                for some_match in regex.find_iter(other) {
-                    rv.push((some_match.start(), some_match.len()));
-                }
-            }
+    pub fn match_indices<'a, S: Into<&'a str>>(&self, other: S) -> Vec<(usize, usize)> {
+        let other = if self.case_sensitive {
+            other.into()
+        } else {
+            &other.into().to_lowercase()
         };
 
-        return rv;
+        match &self.data {
+            TagWrapperData::Raw(value) => other
+                .match_indices(value)
+                .map(|(index, _)| (index, value.len()))
+                .collect(),
+            TagWrapperData::Regex(regex) => regex
+                .find_iter(other)
+                .map(|some_match| (some_match.start(), some_match.len()))
+                .collect(),
+        }
     }
 
-    pub fn matches_exactly<S: Into<String>>(&self, other: S) -> bool {
-        let other = other.into().to_lowercase();
+    pub fn matches_exactly<'a, S: Into<&'a str>>(&self, other: S) -> bool {
+        let other = if self.case_sensitive {
+            other.into()
+        } else {
+            &other.into().to_lowercase()
+        };
+
         match &self.data {
             TagWrapperData::Raw(value) => other == *value,
             TagWrapperData::Regex(regex) => {
@@ -140,7 +171,12 @@ impl TagWrapper {
     }
 
     pub fn starts_with<'a, S: Into<&'a str>>(&self, s: S) -> bool {
-        let s = s.into().to_lowercase();
+        let s = if self.case_sensitive {
+            s.into()
+        } else {
+            &s.into().to_lowercase()
+        };
+
         match &self.data {
             TagWrapperData::Raw(value) => value.starts_with(&s),
             TagWrapperData::Regex(regex) => {
@@ -176,5 +212,47 @@ impl Replacer for Highlighter {
         let temp = caps.get(0).map_or("", |m| m.as_str()).to_string();
         let rv = (*self.to_string_cb)(&temp);
         dst.push_str(&rv);
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn detects_regexes() {
+        assert_eq!(MaybeRegex::new("This is a regex.*").is_regex(), true);
+        assert_eq!(MaybeRegex::new(".*This is a regex").is_regex(), true);
+        assert_eq!(MaybeRegex::new(".This is a regex").is_regex(), true);
+        assert_eq!(MaybeRegex::new("This is a regex [0-9]").is_regex(), true);
+    }
+
+    #[test]
+    fn detects_non_regexes() {
+        assert_eq!(MaybeRegex::new("This is not a regex").is_regex(), false);
+        assert_eq!(MaybeRegex::new("This is not a regex?").is_regex(), false);
+        assert_eq!(MaybeRegex::new("This is not a regex [").is_regex(), false);
+        assert_eq!(
+            MaybeRegex::new("This is not a regex [0-9").is_regex(),
+            false
+        );
+    }
+
+    #[test]
+    fn contains_works() {
+        assert_eq!(MaybeRegex::new("z").is_contained_within("Hello"), false);
+        assert_eq!(MaybeRegex::new("e$").is_contained_within("Hello"), false);
+
+        assert_eq!(MaybeRegex::new("e").is_contained_within("Hello"), true);
+        assert_eq!(MaybeRegex::new("o$").is_contained_within("Hello"), true);
+    }
+
+    #[test]
+    fn negative_works() {
+        assert_eq!(MaybeRegex::new("-e").is_contained_within("Hello"), true);
+        assert_eq!(MaybeRegex::new("-e").matches("Hello"), false);
+
+        assert_eq!(MaybeRegex::new("-o$").is_contained_within("Hello"), true);
+        assert_eq!(MaybeRegex::new("-o$").matches("Hello"), false);
     }
 }
