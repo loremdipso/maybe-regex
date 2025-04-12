@@ -1,6 +1,6 @@
 [package]
 name = "maybe-regex"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2024"
 description = "Wrapper for strings that may be either a regex or a plain-text string"
 homepage = "https://github.com/loremdipso/maybe-regex"

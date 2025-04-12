@@ -16,7 +16,7 @@ lazy_static! {
 pub struct MaybeRegex {
     data: TagWrapperData,
     original: String,
-    is_negative: bool,
+    pub is_negative: bool,
     case_sensitive: bool,
 }
 
