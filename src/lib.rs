@@ -62,7 +62,7 @@ impl TagWrapper {
         }
     }
 
-    pub fn matches<S: Into<String>>(&self, haystack: S) -> bool {
+    pub fn matches<'a, S: Into<&'a str>>(&self, haystack: S) -> bool {
         let matches = self.is_contained_within(haystack);
         if self.is_negative {
             return !matches;
@@ -70,7 +70,8 @@ impl TagWrapper {
         return matches;
     }
 
-    pub fn is_contained_within<S: Into<String>>(&self, haystack: S) -> bool {
+    pub fn is_contained_within<'a, S: Into<&'a str>>(&self, haystack: S) -> bool {
+        // TODO: should case insensitivity be an option?
         let haystack = haystack.into().to_lowercase();
         match &self.data {
             TagWrapperData::Raw(value) => haystack.contains(value),
@@ -130,17 +131,25 @@ impl TagWrapper {
         let other = other.into().to_lowercase();
         match &self.data {
             TagWrapperData::Raw(value) => other == *value,
-            // TODO: should this be something else?
-            TagWrapperData::Regex(regex) => regex.is_match(&other),
+            TagWrapperData::Regex(regex) => {
+                if let Some(found) = regex.find(&other) {
+                    return found.len() == other.len();
+                }
+                return false;
+            }
         }
     }
 
-    pub fn starts_with<S: Into<String>>(&self, s: S) -> bool {
-        let s = s.into();
+    pub fn starts_with<'a, S: Into<&'a str>>(&self, s: S) -> bool {
+        let s = s.into().to_lowercase();
         match &self.data {
             TagWrapperData::Raw(value) => value.starts_with(&s),
-            // TODO: should this be something else?
-            TagWrapperData::Regex(regex) => regex.as_str().starts_with(&s),
+            TagWrapperData::Regex(regex) => {
+                if let Some(found) = regex.find(&s) {
+                    return found.start() == 0;
+                }
+                false
+            }
         }
     }
 }
