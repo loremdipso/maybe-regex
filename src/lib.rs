@@ -39,12 +39,12 @@ pub enum TagWrapperData {
 }
 
 impl MaybeRegex {
-    pub fn new<'a, S: Into<&'a str>>(s: S) -> Self {
+    pub fn new<S: AsRef<str>>(s: S) -> Self {
         Self::from(s)
     }
 
-    pub fn from<'a, S: Into<&'a str>>(s: S) -> Self {
-        let s = s.into();
+    pub fn from<S: AsRef<str>>(s: S) -> Self {
+        let s = s.as_ref();
         let (s, is_negative) = if s.starts_with("-") {
             (remove_first_n_chars(s, 1), true)
         } else if s.ends_with("-") {
@@ -81,7 +81,7 @@ impl MaybeRegex {
         }
     }
 
-    pub fn matches<'a, S: Into<&'a str>>(&self, haystack: S) -> bool {
+    pub fn matches<S: AsRef<str>>(&self, haystack: S) -> bool {
         let matches = self.is_contained_within(haystack);
         if self.is_negative {
             return !matches;
@@ -91,11 +91,11 @@ impl MaybeRegex {
 
     // You likely want matches, which considers whether the input is "negative" or not.
     // This ignores that and just returns whether the needle is found inside the haystack.
-    pub fn is_contained_within<'a, S: Into<&'a str>>(&self, haystack: S) -> bool {
+    pub fn is_contained_within<S: AsRef<str>>(&self, haystack: S) -> bool {
         let haystack = if self.case_sensitive {
-            haystack.into()
+            haystack.as_ref()
         } else {
-            &haystack.into().to_lowercase()
+            &haystack.as_ref().to_lowercase()
         };
 
         match &self.data {
@@ -133,11 +133,11 @@ impl MaybeRegex {
         self.original.clone()
     }
 
-    pub fn match_indices<'a, S: Into<&'a str>>(&self, other: S) -> Vec<(usize, usize)> {
+    pub fn match_indices<S: AsRef<str>>(&self, other: S) -> Vec<(usize, usize)> {
         let other = if self.case_sensitive {
-            other.into()
+            other.as_ref()
         } else {
-            &other.into().to_lowercase()
+            &other.as_ref().to_lowercase()
         };
 
         match &self.data {
@@ -152,11 +152,11 @@ impl MaybeRegex {
         }
     }
 
-    pub fn matches_exactly<'a, S: Into<&'a str>>(&self, other: S) -> bool {
+    pub fn matches_exactly<S: AsRef<str>>(&self, other: S) -> bool {
         let other = if self.case_sensitive {
-            other.into()
+            other.as_ref()
         } else {
-            &other.into().to_lowercase()
+            &other.as_ref().to_lowercase()
         };
 
         match &self.data {
@@ -170,11 +170,11 @@ impl MaybeRegex {
         }
     }
 
-    pub fn starts_with<'a, S: Into<&'a str>>(&self, s: S) -> bool {
+    pub fn starts_with<S: AsRef<str>>(&self, s: S) -> bool {
         let s = if self.case_sensitive {
-            s.into()
+            s.as_ref()
         } else {
-            &s.into().to_lowercase()
+            &s.as_ref().to_lowercase()
         };
 
         match &self.data {
@@ -251,5 +251,12 @@ mod test {
 
         assert!(MaybeRegex::new("-o$").is_contained_within("Hello"));
         assert!(!MaybeRegex::new("-o$").matches("Hello"));
+    }
+
+    #[test]
+    fn all_string_types_work() {
+        assert!(MaybeRegex::new("e").is_contained_within("Hello"));
+        assert!(MaybeRegex::new(String::from("e")).is_contained_within("Hello"));
+        assert!(MaybeRegex::new(&String::from("e")).is_contained_within("Hello"));
     }
 }
