@@ -2,6 +2,11 @@
 name = "maybe-regex"
 version = "0.1.0"
 edition = "2024"
+description = "Wrapper for strings that may be either a regex or a plain-text string"
+homepage = "https://github.com/loremdipso/maybe-regex"
+readme = "README.md"
+license = "MIT"
+keywords = ["strings", "utility"]
 
 [dependencies]
 lazy_static = "1.5.0"
