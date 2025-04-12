@@ -7,15 +7,15 @@ use regex::Regex;
 use std::hint::black_box;
 
 fn basic_contains(haystack: &str, needle: &str) -> bool {
-    return haystack.contains(needle);
+    haystack.contains(needle)
 }
 
 fn regex_contains(haystack: &str, needle: &Regex) -> bool {
-    return needle.is_match(haystack);
+    needle.is_match(haystack)
 }
 
 fn maybe_regex_contains(haystack: &str, needle: &MaybeRegex) -> bool {
-    return needle.is_contained_within(haystack);
+    needle.is_contained_within(haystack)
 }
 
 fn criterion_benchmark(c: &mut Criterion) {

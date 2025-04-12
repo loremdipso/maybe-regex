@@ -46,9 +46,9 @@ impl MaybeRegex {
     pub fn from<'a, S: Into<&'a str>>(s: S) -> Self {
         let s = s.into();
         let (s, is_negative) = if s.starts_with("-") {
-            (remove_first_n_chars(&s, 1), true)
+            (remove_first_n_chars(s, 1), true)
         } else if s.ends_with("-") {
-            (remove_last_n_chars(&s, 1), true)
+            (remove_last_n_chars(s, 1), true)
         } else {
             (s.into(), false)
         };
@@ -56,13 +56,13 @@ impl MaybeRegex {
         match get_regex(&s) {
             Some(regex) => Self {
                 data: TagWrapperData::Regex(regex),
-                original: s.into(),
+                original: s,
                 is_negative,
                 case_sensitive: false,
             },
             None => Self {
                 data: TagWrapperData::Raw(s.clone()),
-                original: s.into(),
+                original: s,
                 is_negative,
                 case_sensitive: false,
             },
@@ -86,7 +86,7 @@ impl MaybeRegex {
         if self.is_negative {
             return !matches;
         }
-        return matches;
+        matches
     }
 
     // You likely want matches, which considers whether the input is "negative" or not.
@@ -100,7 +100,7 @@ impl MaybeRegex {
 
         match &self.data {
             TagWrapperData::Raw(value) => haystack.contains(value),
-            TagWrapperData::Regex(regex) => regex.is_match(&haystack),
+            TagWrapperData::Regex(regex) => regex.is_match(haystack),
         }
     }
 
@@ -122,7 +122,7 @@ impl MaybeRegex {
                 output = output.replace("abcdefg", "\n");
             }
         };
-        return output;
+        output
     }
 
     pub fn to_str(&self) -> &str {
@@ -162,10 +162,10 @@ impl MaybeRegex {
         match &self.data {
             TagWrapperData::Raw(value) => other == *value,
             TagWrapperData::Regex(regex) => {
-                if let Some(found) = regex.find(&other) {
+                if let Some(found) = regex.find(other) {
                     return found.len() == other.len();
                 }
-                return false;
+                false
             }
         }
     }
@@ -178,9 +178,9 @@ impl MaybeRegex {
         };
 
         match &self.data {
-            TagWrapperData::Raw(value) => value.starts_with(&s),
+            TagWrapperData::Raw(value) => value.starts_with(s),
             TagWrapperData::Regex(regex) => {
-                if let Some(found) = regex.find(&s) {
+                if let Some(found) = regex.find(s) {
                     return found.start() == 0;
                 }
                 false
@@ -200,7 +200,7 @@ fn get_regex(s: &str) -> Option<Regex> {
             }
         }
     }
-    return None;
+    None
 }
 
 struct Highlighter {
@@ -221,38 +221,35 @@ mod test {
 
     #[test]
     fn detects_regexes() {
-        assert_eq!(MaybeRegex::new("This is a regex.*").is_regex(), true);
-        assert_eq!(MaybeRegex::new(".*This is a regex").is_regex(), true);
-        assert_eq!(MaybeRegex::new(".This is a regex").is_regex(), true);
-        assert_eq!(MaybeRegex::new("This is a regex [0-9]").is_regex(), true);
+        assert!(MaybeRegex::new("This is a regex.*").is_regex());
+        assert!(MaybeRegex::new(".*This is a regex").is_regex());
+        assert!(MaybeRegex::new(".This is a regex").is_regex());
+        assert!(MaybeRegex::new("This is a regex [0-9]").is_regex());
     }
 
     #[test]
     fn detects_non_regexes() {
-        assert_eq!(MaybeRegex::new("This is not a regex").is_regex(), false);
-        assert_eq!(MaybeRegex::new("This is not a regex?").is_regex(), false);
-        assert_eq!(MaybeRegex::new("This is not a regex [").is_regex(), false);
-        assert_eq!(
-            MaybeRegex::new("This is not a regex [0-9").is_regex(),
-            false
-        );
+        assert!(!MaybeRegex::new("This is not a regex").is_regex());
+        assert!(!MaybeRegex::new("This is not a regex?").is_regex());
+        assert!(!MaybeRegex::new("This is not a regex [").is_regex());
+        assert!(!MaybeRegex::new("This is not a regex [0-9").is_regex());
     }
 
     #[test]
     fn contains_works() {
-        assert_eq!(MaybeRegex::new("z").is_contained_within("Hello"), false);
-        assert_eq!(MaybeRegex::new("e$").is_contained_within("Hello"), false);
+        assert!(!MaybeRegex::new("z").is_contained_within("Hello"));
+        assert!(!MaybeRegex::new("e$").is_contained_within("Hello"));
 
-        assert_eq!(MaybeRegex::new("e").is_contained_within("Hello"), true);
-        assert_eq!(MaybeRegex::new("o$").is_contained_within("Hello"), true);
+        assert!(MaybeRegex::new("e").is_contained_within("Hello"));
+        assert!(MaybeRegex::new("o$").is_contained_within("Hello"));
     }
 
     #[test]
     fn negative_works() {
-        assert_eq!(MaybeRegex::new("-e").is_contained_within("Hello"), true);
-        assert_eq!(MaybeRegex::new("-e").matches("Hello"), false);
+        assert!(MaybeRegex::new("-e").is_contained_within("Hello"));
+        assert!(!MaybeRegex::new("-e").matches("Hello"));
 
-        assert_eq!(MaybeRegex::new("-o$").is_contained_within("Hello"), true);
-        assert_eq!(MaybeRegex::new("-o$").matches("Hello"), false);
+        assert!(MaybeRegex::new("-o$").is_contained_within("Hello"));
+        assert!(!MaybeRegex::new("-o$").matches("Hello"));
     }
 }
