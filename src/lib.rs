@@ -7,14 +7,28 @@ use std::cmp::Ordering;
 mod utils;
 
 lazy_static! {
+    // Simplistic check to see if a string is likely a regex.
+    // TODO: is there a way to make this actually correct?
     static ref REGEX_REGEX: Regex = Regex::new(r"[\\b\$\^\[\]\+\*\.]").unwrap();
 }
 
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone)]
 pub struct TagWrapper {
     data: TagWrapperData,
     original: String,
     pub is_negative: bool,
+}
+
+impl PartialEq for TagWrapper {
+    fn eq(&self, other: &Self) -> bool {
+        self.original == other.original && self.is_negative == other.is_negative
+    }
+}
+
+impl PartialOrd for TagWrapper {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        (&self.original, self.is_negative).partial_cmp(&(&other.original, other.is_negative))
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -23,29 +37,15 @@ pub enum TagWrapperData {
     Regex(Regex),
 }
 
-impl PartialOrd for TagWrapperData {
-    fn partial_cmp(&self, _other: &Self) -> Option<std::cmp::Ordering> {
-        Some(Ordering::Equal)
-    }
-}
-
-impl PartialEq for TagWrapperData {
-    fn eq(&self, _other: &Self) -> bool {
-        true
-    }
-}
-
 impl TagWrapper {
-    pub fn from<S: Into<String>>(s: S) -> Self {
-        let mut s = s.into();
-        let is_negative = if s.starts_with("-") {
-            s = remove_first_n_chars(&s, 1);
-            true
+    pub fn from<'a, S: Into<&'a str>>(s: S) -> Self {
+        let s = s.into();
+        let (s, is_negative) = if s.starts_with("-") {
+            (remove_first_n_chars(&s, 1), true)
         } else if s.ends_with("-") {
-            s = remove_last_n_chars(&s, 1);
-            true
+            (remove_last_n_chars(&s, 1), true)
         } else {
-            false
+            (s.into(), false)
         };
 
         match get_regex(&s) {
@@ -71,7 +71,6 @@ impl TagWrapper {
     }
 
     pub fn is_contained_within<'a, S: Into<&'a str>>(&self, haystack: S) -> bool {
-        // TODO: should case insensitivity be an option?
         let haystack = haystack.into().to_lowercase();
         match &self.data {
             TagWrapperData::Raw(value) => haystack.contains(value),
