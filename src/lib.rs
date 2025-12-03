@@ -1,8 +1,8 @@
 use crate::utils::{remove_first_n_chars, remove_last_n_chars};
 use lazy_static::lazy_static;
 use log::error;
-use regex::{Captures, Regex, Replacer};
-use std::cmp::Ordering;
+use regex::{Captures, Regex, RegexBuilder, Replacer};
+use std::{cmp::Ordering, fmt::Display};
 
 mod utils;
 
@@ -129,10 +129,6 @@ impl MaybeRegex {
         self.original.as_str()
     }
 
-    pub fn to_string(&self) -> String {
-        self.original.clone()
-    }
-
     pub fn match_indices<S: AsRef<str>>(&self, other: S) -> Vec<(usize, usize)> {
         let other = if self.case_sensitive {
             other.as_ref()
@@ -189,9 +185,15 @@ impl MaybeRegex {
     }
 }
 
+impl Display for MaybeRegex {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.to_str())
+    }
+}
+
 fn get_regex(s: &str) -> Option<Regex> {
     if REGEX_REGEX.is_match(s) {
-        match Regex::new(s) {
+        match RegexBuilder::new(s).case_insensitive(true).build() {
             Ok(regex) => {
                 return Some(regex);
             }
@@ -258,5 +260,17 @@ mod test {
         assert!(MaybeRegex::new("e").is_contained_within("Hello"));
         assert!(MaybeRegex::new(String::from("e")).is_contained_within("Hello"));
         assert!(MaybeRegex::new(&String::from("e")).is_contained_within("Hello"));
+    }
+
+    #[test]
+    fn is_case_insensitive() {
+        assert!(MaybeRegex::new(".*O").is_contained_within("hello"));
+        assert!(MaybeRegex::new(String::from("e")).is_contained_within("Hello"));
+        assert!(MaybeRegex::new(&String::from("e")).is_contained_within("Hello"));
+    }
+
+    #[test]
+    fn implements_to_string() {
+        assert!(MaybeRegex::new("howdy").to_string() == String::from("howdy"));
     }
 }
