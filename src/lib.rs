@@ -8,8 +8,8 @@ mod utils;
 
 lazy_static! {
     // Simplistic check to see if a string is likely a regex.
-    // TODO: is there a way to make this actually correct?
-    static ref REGEX_REGEX: Regex = Regex::new(r"[\\b\$\^\[\]\+\*\.]").unwrap();
+    static ref REGEX_REGEX: Regex = Regex::new(
+        r"(?i)[\$\^\[\]\+\*\.]|\\[dwsbB]{1}").unwrap();
 }
 
 #[derive(Debug, Clone)]
@@ -227,6 +227,9 @@ mod test {
         assert!(MaybeRegex::new(".*This is a regex").is_regex());
         assert!(MaybeRegex::new(".This is a regex").is_regex());
         assert!(MaybeRegex::new("This is a regex [0-9]").is_regex());
+        assert!(MaybeRegex::new("This is a regex \\b").is_regex());
+        assert!(MaybeRegex::new("This is a regex$").is_regex());
+        assert!(MaybeRegex::new("^This is a regex").is_regex());
     }
 
     #[test]
@@ -235,6 +238,7 @@ mod test {
         assert!(!MaybeRegex::new("This is not a regex?").is_regex());
         assert!(!MaybeRegex::new("This is not a regex [").is_regex());
         assert!(!MaybeRegex::new("This is not a regex [0-9").is_regex());
+        assert!(!MaybeRegex::new("This is not a regex b").is_regex());
     }
 
     #[test]
