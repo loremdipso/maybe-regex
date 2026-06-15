@@ -12,7 +12,7 @@ lazy_static! {
         r"(?i)[\$\^\[\]\+\*\.]|\\[dwsbB]{1}").unwrap();
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct MaybeRegex {
     data: TagWrapperData,
     original: String,
@@ -36,6 +36,12 @@ impl PartialOrd for MaybeRegex {
 pub enum TagWrapperData {
     Raw(String),
     Regex(Regex),
+}
+
+impl Default for TagWrapperData {
+    fn default() -> Self {
+        Self::Raw(String::default())
+    }
 }
 
 impl MaybeRegex {
